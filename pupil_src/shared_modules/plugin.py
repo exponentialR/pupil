@@ -338,6 +338,9 @@ class Plugin(object):
         # Bind wrapper to current instance
         self.gl_display = types.MethodType(wrapper, self)
 
+    def _init_(self, g_pool):
+        pass
+
 
 # Plugin manager classes and fns
 class Plugin_List(object):
