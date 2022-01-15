@@ -1,23 +1,18 @@
-from _ast import keyword
+import mediapipe as mp
+
+mp_drawing = mp.solutions.drawing_utils
+mp_hands = mp.solutions.hands
+from plugin import Plugin
 
 import cv2
 import glfw
 import mediapipe as mp
 from pyglui import ui
-from pyglui.cygl.utils import draw_polyline, draw_points, RGBA, draw_gl_texture
-
 import gl_utils
-from threading import Thread
-import multiprocessing
-
-mp_drawing = mp.solutions.drawing_utils
-mp_hands = mp.solutions.hands
-
-from plugin import Plugin
-# logging
-import logging
-
-logger = logging.getLogger(__name__)
+import os
+import sys
+from pathlib import Path
+import cv2
 
 
 class Hand_Pupil(Plugin):
@@ -34,6 +29,14 @@ class Hand_Pupil(Plugin):
         self.menu = None
         self.img = None
         self.new_window = False
+        self.save_txt = True
+        self.view_img = True
+        self.hide_labels = False
+        self.img_size = 640
+        self.stride = 32
+        self.save_crop = False
+        self.auto = True
+        self.hide_conf = False
 
     def init_ui(self):
         # lets make a menu entry in the sidebar
@@ -65,17 +68,15 @@ class Hand_Pupil(Plugin):
         for hand_landmarks in results.multi_hand_landmarks:
             mp_drawing.draw_landmarks(image, hand_landmarks,
                                       mp_hands.HAND_CONNECTIONS)
-            # print(list1)
 
     def recent_events(self, events):
-        if 'frame' in events:
-            frame = events['frame']
-            self.img = frame.img
-            cv2.putText(self.img, 'starting collection', (50, 50), cv2.FONT_ITALIC, 1, (0, 255, 0), 1, cv2.LINE_AA)
-            with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) as hands:
-                m_results = self.handDetection(self.img, hands)
+        if "frame" not in events:
+            return
+        frame = events['frame'].img
 
-                if not m_results.multi_hand_landmarks:
-                    return
-                self.Drawlandmark(self.img, m_results)
-
+        cv2.putText(frame, 'starting collection', (50, 50), cv2.FONT_ITALIC, 1, (0, 255, 0), 1, cv2.LINE_AA)
+        with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) as hands:
+            m_results = self.handDetection(frame, hands)
+            if not m_results.multi_hand_landmarks:
+                return
+            self.Drawlandmark(frame, m_results)
