@@ -34,7 +34,7 @@ def create_dir(actions, data_dir):
         data_dir = os.path.join(data_dir)
 
     for action in actions:
-        for folder in range(5):#Commented this out as there is no need for subfolder
+        for folder in range(10):#Commented this out as there is no need for subfolder
             try:
                 os.makedirs(os.path.join(data_dir, action, str(folder)))  # str(folder)
             except:

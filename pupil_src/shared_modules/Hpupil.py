@@ -74,7 +74,7 @@ class Hand_Pupil(Plugin):
             return
         frame = events['frame'].img
 
-        cv2.putText(frame, 'starting collection', (50, 50), cv2.FONT_ITALIC, 1, (0, 255, 0), 1, cv2.LINE_AA)
+        cv2.putText(frame, 'COLLECTING DATA', (50, 50), cv2.FONT_ITALIC, 0.25, (0, 255, 0), 1, cv2.LINE_AA)
         with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) as hands:
             m_results = self.handDetection(frame, hands)
             if not m_results.multi_hand_landmarks:

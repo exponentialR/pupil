@@ -173,6 +173,7 @@ def world(
         from pupil_groups import Pupil_Groups
         from Hpupil import Hand_Pupil
         from HandDataExtract import HandDataExtract
+        from HandEyeObject import HandEyeObject
         from object_dectecor import ObjectDetector
         from fixation_extract import Fixation_Extractor
         from surface_tracker import Surface_Tracker_Online
@@ -262,6 +263,7 @@ def world(
             Fixation_Detector,
             Blink_Detection,
             Hand_Pupil,
+            HandEyeObject,
             HandDataExtract,
             ObjectDetector,
             Fixation_Extractor,

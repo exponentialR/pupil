@@ -29,7 +29,6 @@ path = r'/home/iamshri/PycharmProjects/intent/yolov5/best.pt'
 model = torch.hub.load('ultralytics/yolov5', 'custom', path)
 model.to(device)
 names = model.names
-empty_array = np.zeros(16)
 
 from plugin import Plugin
 import logging
@@ -37,9 +36,79 @@ import logging
 logger = logging.getLogger((__name__))
 
 
-def extract_fixations(occurrence):
-    return np.array([pt["norm_pos"] for pt in occurrence.get(
-        "fixations")]).flatten() if "fixations" in occurrence else np.zeros(2 * 2)
+def draw_plots(frame, results):
+    for res in results:  # plot bounding boxes and include labels
+        if res['class'] == 0:  # Book
+            l = int(res['xmin'])
+            t = int(res['ymin'])
+            r = int(res['xmax'])
+            b = int(res['ymax'])
+            text_in_image = res['name']
+            cv2.rectangle(frame, (l, t), (r, b), (0, 0, 255), 1)
+            cv2.putText(frame, text_in_image, (l, t), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+                        cv2.LINE_AA)
+
+        elif res['class'] == 1:  # Mug
+            l1 = int(res['xmin'])
+            t1 = int(res['ymin'])
+            r1 = int(res['xmax'])
+            b1 = int(res['ymax'])
+            text_in_image = res['name']
+            cv2.rectangle(frame, (l1, t1), (r1, b1), (255, 0, 0), 1)
+            cv2.putText(frame, text_in_image, (l1, t1), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+                        cv2.LINE_AA)
+
+        elif res['class'] == 2:  # Mugs
+            l2 = int(res['xmin'])
+            t2 = int(res['ymin'])
+            r2 = int(res['xmax'])
+            b2 = int(res['ymax'])
+            text_in_image = res['name']
+            # cv2.rectangle(frame, (l2, t2), (r2, b2), (255, 0, 255), 1)
+            # cv2.putText(frame, text_in_image, (l2, t2), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+            #             cv2.LINE_AA)
+
+        else:
+            l3 = int(res['xmin'])
+            t3 = int(res['ymin'])
+            r3 = int(res['xmax'])
+            b3 = int(res['ymax'])
+            text_in_image = res['name']
+            cv2.rectangle(frame, (l3, t3), (r3, b3), (0, 255, 0), 1)
+            cv2.putText(frame, text_in_image, (l3, t3), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+                        cv2.LINE_AA)
+
+
+def extract_coordinates(results):
+    empty_array = np.zeros(12)
+    for i in results:
+
+        if i['class'] == 0:  # Book
+            empty_array[0] = i['xcenter']
+            empty_array[1] = i['ycenter']
+            empty_array[2] = i['width']
+            empty_array[3] = i['height']
+
+        elif i['class'] == 1:  # Mug
+            empty_array[4] = i['xcenter']
+            empty_array[5] = i['ycenter']
+            empty_array[6] = i['width']
+            empty_array[7] = i['height']
+
+        elif i['class'] == 3:  # Stacked Books
+            empty_array[8] = i['xcenter']
+            empty_array[9] = i['ycenter']
+            empty_array[10] = i['width']
+            empty_array[11] = i['height']
+        pass
+
+        # else:  # Mugs
+        # empty_array[12] = i['xcenter']
+        # empty_array[13] = i['ycenter']
+        # empty_array[14] = i['width']
+        # empty_array[15] = i['height']
+        # print(names[1])
+    return empty_array
 
 
 class ObjectDetector(Plugin):
@@ -71,38 +140,6 @@ class ObjectDetector(Plugin):
         self.sequence = 0
         self.path = r'/home/iamshri/PycharmProjects/intent/yolov5/best.pt'
 
-    @staticmethod
-    def detect_hands(image, result):
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image.flags.writeable = False
-        results = result.process(image)
-        image.flags.writeable = True
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        return results, image
-
-    def draw_landmarks(self, image, results):
-        for hand_landmarks in results.multi_hand_landmarks:
-            self.mp_drawing.draw_landmarks(image, hand_landmarks, self.hands.HAND_CONNECTIONS)
-
-    @staticmethod
-    def extract_coordinates(results, occurrence):
-        if results.multi_hand_landmarks:
-            for idx, hand_coordinates in enumerate(results.multi_hand_landmarks):
-                for _, classification in enumerate(results.multi_handedness):
-                    right_hand = np.array([[coordinates_.x, coordinates_.y, coordinates_.z] for coordinates_ in
-                                           hand_coordinates.landmark]).flatten() if classification.classification[
-                                                                                        0].index == 1 else np.zeros(
-                        21 * 3)
-                    left_hand = np.array([[coordinates_.x, coordinates_.y, coordinates_.z] for coordinates_ in
-                                          hand_coordinates.landmark]).flatten() if classification.classification[
-                                                                                       0].index == idx else np.zeros(
-                        21 * 3)
-                    fixation_pts = np.array([pt["norm_pos"] for pt in occurrence.get(
-                        "fixations")]).flatten() if "fixations" in occurrence else np.zeros(2 * 2)
-                    # fixation_pts = [pt["norm_pos"] for pt in events.get("fixations")]
-                    # fixation_pts = np.array([pt["norm_pos"] for pt in events.get("fixations")]).flatten() if "fixations" in events else np.zeros(2*2)
-                    return np.concatenate([fixation_pts, right_hand, left_hand])
-
     def recent_events(self, events):
         if not self.running or "frame" not in events:
             return
@@ -110,75 +147,62 @@ class ObjectDetector(Plugin):
         image = frame.copy()
         detect_obj = model(image[..., ::-1])
         results = detect_obj.pandas().xywhn[0].to_dict(orient='records')
+        # empty_array = np.zeros(12)
         rect_bbox = detect_obj.pandas().xyxy[0].to_dict(orient='records')
-        # print(results)
+        # rect_coords = extract_coordinates(results)
+        # print(rect_bbox)
+        draw_plots(frame, rect_bbox)
+        print(self.extract_bbox(results, empty=np.zeros(4)))
 
+    def extract_bbox(self, results, empty=np.zeros(4)):
+        if not results:
+            return empty
         for i in results:
-            if i['class'] == 0:  # Book
-                empty_array[0] = i['xcenter']
-                empty_array[1] = i['ycenter']
-                empty_array[2] = i['width']
-                empty_array[3] = i['height']
+            if i['class'] == 3:
+                empty[0] = i['xcenter']
+                empty[1] = i['ycenter']
+                empty[2] = i['width']
+                empty[3] = i['height']
+                return empty.flatten()
+            return empty
 
-            elif i['class'] == 1:  # Mug
-                empty_array[0] = i['xcenter']
-                empty_array[1] = i['ycenter']
-                empty_array[2] = i['width']
-                empty_array[3] = i['height']
-
-            elif i['class'] == 2:  # Mugs
-                empty_array[4] = i['xcenter']
-                empty_array[5] = i['ycenter']
-                empty_array[6] = i['width']
-                empty_array[7] = i['height']
-
-            else:  # Stacked_Books
-                empty_array[8] = i['xcenter']
-                empty_array[9] = i['ycenter']
-                empty_array[10] = i['width']
-                empty_array[11] = i['height']
-            # print(names[1])
-        # print(empty_array)
-        for res in rect_bbox: #plot bounding boxes and include labels
-            if res['class'] == 0:  # Book
-                l = int(res['xmin'])
-                t = int(res['ymin'])
-                r = int(res['xmax'])
-                b = int(res['ymax'])
-                text_in_image = res['name']
-                cv2.rectangle(frame, (l, t), (r, b), (0, 0, 255), 1)
-                cv2.putText(frame, text_in_image, (l, t), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
-                            cv2.LINE_AA)
-
-            elif res['class'] == 1:  # Mug
-                l1 = int(res['xmin'])
-                t1 = int(res['ymin'])
-                r1 = int(res['xmax'])
-                b1 = int(res['ymax'])
-                text_in_image = res['name']
-                # cv2.rectangle(frame, (l1, t1), (r1, b1), (255, 0, 0), 1)
-                # cv2.putText(frame, text_in_image, (l1, t1), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
-                #             cv2.LINE_AA)
-
-            elif res['class'] == 2:  # Mugs
-                l2 = int(res['xmin'])
-                t2 = int(res['ymin'])
-                r2 = int(res['xmax'])
-                b2 = int(res['ymax'])
-                text_in_image = res['name']
-                # cv2.rectangle(frame, (l2, t2), (r2, b2), (255, 0, 255), 1)
-                # cv2.putText(frame, text_in_image, (l2, t2), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
-                #             cv2.LINE_AA)
-
-            else:
-                l3 = int(res['xmin'])
-                t3 = int(res['ymin'])
-                r3 = int(res['xmax'])
-                b3 = int(res['ymax'])
-                text_in_image = res['name']
-                cv2.rectangle(frame, (l3, t3), (r3, b3), (0, 255, 0), 1)
-                cv2.putText(frame, text_in_image, (l3, t3), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
-                            cv2.LINE_AA)
-
-
-
+        # for res in rect_bbox:  # plot bounding boxes and include labels
+        #     if res['class'] == 0:  # Book
+        #         l = int(res['xmin'])
+        #         t = int(res['ymin'])
+        #         r = int(res['xmax'])
+        #         b = int(res['ymax'])
+        #         text_in_image = res['name']
+        #         cv2.rectangle(frame, (l, t), (r, b), (0, 0, 255), 1)
+        #         cv2.putText(frame, text_in_image, (l, t), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+        #                     cv2.LINE_AA)
+        #
+        #     elif res['class'] == 1:  # Mug
+        #         l1 = int(res['xmin'])
+        #         t1 = int(res['ymin'])
+        #         r1 = int(res['xmax'])
+        #         b1 = int(res['ymax'])
+        #         text_in_image = res['name']
+        #         cv2.rectangle(frame, (l1, t1), (r1, b1), (255, 0, 0), 1)
+        #         cv2.putText(frame, text_in_image, (l1, t1), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+        #                     cv2.LINE_AA)
+        #
+        #     elif res['class'] == 2:  # Mugs
+        #         l2 = int(res['xmin'])
+        #         t2 = int(res['ymin'])
+        #         r2 = int(res['xmax'])
+        #         b2 = int(res['ymax'])
+        #         text_in_image = res['name']
+        #         # cv2.rectangle(frame, (l2, t2), (r2, b2), (255, 0, 255), 1)
+        #         # cv2.putText(frame, text_in_image, (l2, t2), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+        #         #             cv2.LINE_AA)
+        #
+        #     else:
+        #         l3 = int(res['xmin'])
+        #         t3 = int(res['ymin'])
+        #         r3 = int(res['xmax'])
+        #         b3 = int(res['ymax'])
+        #         text_in_image = res['name']
+        #         cv2.rectangle(frame, (l3, t3), (r3, b3), (0, 255, 0), 1)
+        #         cv2.putText(frame, text_in_image, (l3, t3), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+        #                     cv2.LINE_AA)

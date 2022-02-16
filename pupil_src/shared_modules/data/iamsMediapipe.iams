@@ -1,1 +1,1 @@
-{"actions": ["intentions", "notintentions"], "video_length": 30, "Data_Directory": "intentiondata", "Data_Subfolder": "data/intentiondata"}
+{"actions": ["pickup1", "pickup2", "pickup3", "pickup4"], "video_length": 30, "Data_Directory": "pickup_intention_1", "Data_Subfolder": "data/pickup_intention_1"}

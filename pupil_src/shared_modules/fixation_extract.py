@@ -30,14 +30,14 @@ class Fixation_Extractor(Plugin):
     def __init__(self, g_pool):
         super(Fixation_Extractor, self).__init__(g_pool)
         self.g_pool.display_mode = "algorithm"
-        self.order = .5
+        self.order = 1.0
         self.window = None
         self.menu = None
         self.img = None
         self.new_window = False
-        self.f_content = json.load(f)
+        # self.f_content = json.load(f)
         # self.root_folder = self.f_content['Data_Subfolder']
-        self.root_folder = os.path.join(ROOT_FOLDER, self.f_content['Data_Directory'])
+        # self.root_folder = os.path.join(ROOT_FOLDER, self.f_content['Data_Directory'])
         self.frame_num = 1
         self.current_action = 0
         self.start_time = None
@@ -46,44 +46,48 @@ class Fixation_Extractor(Plugin):
 
     @staticmethod
     def extract_fixations(occurrence):
-        return np.array([pt["norm_pos"] for pt in occurrence.get(
-            "fixations")]).flatten() if "fixations" in occurrence else np.zeros(2 * 2)
+        y = np.array([pt["norm_pos"] for pt in occurrence.get(
+            "fixations")]).flatten() if "fixations" in occurrence else np.zeros(2)
+        return y
 
     def recent_events(self, events):
 
-        if not self.running or "frame" not in events:
-            return
-        start_ = perf_counter()
-        if self.start_time is None:
-            self.start_time = start_
-        passed_time = start_ - self.start_time
-        action = self.f_content["actions"][self.current_action]
+        fixation_extract = np.array([[pt["norm_pos"] ] for pt in events.get(
+            "fixations")]).flatten() if events.get("fixations") else np.zeros(2)
+        print(fixation_extract)
 
-        if passed_time <= time_per_action_sec:
-            self.passed_time.append(passed_time)
-            frame = events['frame'].img
-            text_in_image = f"{action} idx={self.frame_num} passed_time={passed_time}"
+        # if not self.running or "frame" not in events:
+        #     return
+        # start_ = perf_counter()
+        # if self.start_time is None:
+        #     self.start_time = start_
+        # passed_time = start_ - self.start_time
+        # action = self.f_content["actions"][self.current_action]
 
-            cv2.putText(frame, text_in_image, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.3, (255, 0, 0), 1, cv2.LINE_AA)
-            cv2.waitKey(7000)
-            fixation_extract = self.extract_fixations(events)
-            file_name = f"keypoint_{self.frame_num}"
-            # os.path.join(self.f_content['Data_Subfolder'], self.f_content['actions'][0], str(self.frame_num))
-            path_to_keypoint_file = Path(os.path.join(self.root_folder, action, file_name))
-            np.save(path_to_keypoint_file, fixation_extract)
-            print(fixation_extract)
+        # if passed_time <= time_per_action_sec:
+        #     self.passed_time.append(passed_time)
+        #     frame = events['frame'].img
+        #     text_in_image = f"{action} idx={self.frame_num} passed_time={passed_time}"
 
-        else:
-            # cv2.waitKey(7000)
-            time_file_name = "time_since_action_start.npy"
-            path_to_time_file = os.path.join(self.root_folder, action, time_file_name)
-            np.save(path_to_time_file, self.passed_time)
-            self.passed_time = []
-            # self.frame_num = 1
-            self.start_time = None
-            self.current_action += 1
-            # cv2.waitKey(5000)
-            if self.current_action > len(self.f_content["actions"]):
-                self.running = False
-            return
+        # cv2.putText(frame, text_in_image, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.3, (255, 0, 0), 1, cv2.LINE_AA)
+        # cv2.waitKey(7000)
+        # fixation_extract = self.extract_fixations(events)
+        # file_name = f"keypoint_{self.frame_num}"
+        # os.path.join(self.f_content['Data_Subfolder'], self.f_content['actions'][0], str(self.frame_num))
+        # path_to_keypoint_file = Path(os.path.join(self.root_folder, action, file_name))
+        # np.save(path_to_keypoint_file, fixation_extract)
+        # print(fixation_extract)
 
+        # else:
+        #     # cv2.waitKey(7000)
+        #     time_file_name = "time_since_action_start.npy"
+        #     path_to_time_file = os.path.join(self.root_folder, action, time_file_name)
+        #     np.save(path_to_time_file, self.passed_time)
+        #     self.passed_time = []
+        #     # self.frame_num = 1
+        #     self.start_time = None
+        #     self.current_action += 1
+        #     # cv2.waitKey(5000)
+        #     if self.current_action > len(self.f_content["actions"]):
+        #         self.running = False
+        #     return

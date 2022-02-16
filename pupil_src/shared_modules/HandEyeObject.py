@@ -33,14 +33,14 @@ def detect_hands(image, result):
     return results
 
 
-class HandDataExtract(Plugin):
+class HandEyeObject(Plugin):
     """"This Plugin Extracts hand coordinates
     and fixation in world scene camera"""
     icon_chr = "HP"
     icon_font = "roboto"
 
     def __init__(self, g_pool):
-        super(HandDataExtract, self).__init__(g_pool)
+        super(HandEyeObject, self).__init__(g_pool)
         self.g_pool.display_mode = "algorithm"
         self.order = 1.0
         self.f = open(absolute_iams_path)
@@ -63,30 +63,31 @@ class HandDataExtract(Plugin):
         frame = events['frame'].img
         action = self.f_content['actions'][self.current_action]
         folder = 10
+
         if self.current_action < len(self.f_content['actions']) and self.folder_number < folder:
 
             image = events['frame'].img
 
             text_to_display = f'action = {action} frame_number = {self.frame_num}'  # passed_time ={passed_time}'
-            cv2.putText(frame, text_to_display, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+            cv2.putText(frame, text_to_display, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.25, (255, 100, 120), 1,
                         cv2.LINE_AA)
             mediapipe_hands = self.hands.Hands(min_tracking_confidence=0.55, min_detection_confidence=0.6)
             results = detect_hands(frame, mediapipe_hands)
-            keypoints_fixations = extract_keypoints(results, events)
-            print(keypoints_fixations)
-
             file_name = f'{self.frame_num}.npy'
-            keypoints_path = os.path.join(self.root_folder, action, str(self.folder_number), file_name)
+            keypoints = extract_keypoints(results, events, image)
+            print(keypoints)
 
-            np.save(keypoints_path, keypoints_fixations)
+            keypoints_path = os.path.join(self.root_folder, action, str(self.folder_number), file_name)
+            np.save(keypoints_path, keypoints)
+            print(keypoints)
             self.frame_num += 1
 
             self.draw_landmarks(image, results)
-
             if self.frame_num >= 20:
-                # cv2.waitKey(5000)
+                # if self.frame_num >= 40:
                 self.folder_number += 1
                 self.frame_num = 1
+
 
         else:
 
@@ -94,6 +95,7 @@ class HandDataExtract(Plugin):
             self.folder_number = 0
             if self.current_action > len(self.f_content['actions']):
                 self.running = False
+
             return
 
     def draw_landmarks(self, image, results):
@@ -102,7 +104,7 @@ class HandDataExtract(Plugin):
                 self.mp_drawing.draw_landmarks(image, hand_landmarks, self.hands.HAND_CONNECTIONS)
 
 
-def extract_keypoints(results, occurrence):
+def extract_keypoints(results, occurrence, image):
     if results.multi_hand_landmarks:
         for idx, hand_coordinates in enumerate(results.multi_hand_landmarks):
             for _, classification in enumerate(results.multi_handedness):
@@ -117,19 +119,18 @@ def extract_keypoints(results, occurrence):
 
                 fixation_pts = np.array([pt["norm_pos"] for pt in occurrence.get(
                     "fixations")]).flatten() if occurrence.get('fixations') else np.zeros(2)
-                # bbox = extract_bbox(image)
-                return np.concatenate([left_hand, right_hand, fixation_pts])
+                bbox = extract_bbox(image)
+                return np.concatenate([left_hand, right_hand, fixation_pts, bbox])
 
 
-def extract_bbox(image):
-    detect_obj = model(image[..., ::-1])
-    results_obj = detect_obj.pandas().xywhn[0].to_dict(orient='records')
-    empty = np.zeros(4)
-
-    for i in results_obj:
+def extract_bbox(results, empty=np.zeros(4)):
+    if not results:
+        return empty
+    for i in results:
         if i['class'] == 3:
             empty[0] = i['xcenter']
             empty[1] = i['ycenter']
             empty[2] = i['width']
             empty[3] = i['height']
-    return empty.flatten()
+            return empty.flatten()
+        return empty
