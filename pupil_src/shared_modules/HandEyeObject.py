@@ -60,52 +60,64 @@ class HandEyeObject(Plugin):
     def recent_events(self, events):
         if not self.running or 'frame' not in events:
             return
-        frame = events['frame'].img
+        # frame = events['frame'].img
+        fixation_pts = np.array([pt["norm_pos"] for pt in events.get(
+            "fixations")]).flatten() if events.get('fixations') else np.zeros(2)
         action = self.f_content['actions'][self.current_action]
         folder = 10
 
-        if self.current_action < len(self.f_content['actions']) and self.folder_number < folder:
+        detect_obj = model(events['frame'].img[..., ::-1])
+        results_obj = np.array(detect_obj.pandas().xywhn[0].to_dict(orient='records'))
+        plot_bbox = np.array(detect_obj.pandas().xyxy[0].to_dict(orient='records'))
+        bbox=extract_bbox(results_obj, empty=np.zeros(4))
+        draw_plots(events['frame'].img, plot_bbox)
+        with self.hands.Hands(min_tracking_confidence=0.55, min_detection_confidence=0.6) as mediapipe_hands:
+            if self.current_action < len(self.f_content['actions']) and self.folder_number < folder:
+                image = events['frame'].img
 
-            image = events['frame'].img
+                text_to_display = f'action = {action} frame_number = {self.frame_num}'  # passed_time ={passed_time}'
+                cv2.putText(events['frame'].img, text_to_display, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.25, (255, 100, 120), 1,
+                            cv2.LINE_AA)
 
-            text_to_display = f'action = {action} frame_number = {self.frame_num}'  # passed_time ={passed_time}'
-            cv2.putText(frame, text_to_display, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.25, (255, 100, 120), 1,
-                        cv2.LINE_AA)
-            mediapipe_hands = self.hands.Hands(min_tracking_confidence=0.55, min_detection_confidence=0.6)
-            results = detect_hands(frame, mediapipe_hands)
-            file_name = f'{self.frame_num}.npy'
-            keypoints = extract_keypoints(results, events, image)
-            print(keypoints)
+                results = detect_hands(events['frame'].img, mediapipe_hands)
+                self.draw_landmarks(image, results)
+                file_name = f'{self.frame_num}.npy'
+                hand_keypoints = self.extract_keypoints(results)
+                H_E_O_keypoints = np.concatenate([hand_keypoints, fixation_pts, bbox])
+                # keypoints= extract_obbbox(results_obj, empty=np.zeros(4))
+                # print(H_E_O_keypoints)
 
-            keypoints_path = os.path.join(self.root_folder, action, str(self.folder_number), file_name)
-            np.save(keypoints_path, keypoints)
-            print(keypoints)
-            self.frame_num += 1
+                H_E_O_keypoints_path = os.path.join(self.root_folder, action, str(self.folder_number), file_name)
+                np.save(H_E_O_keypoints_path, H_E_O_keypoints)
+                # print(keypoints)
+                self.frame_num += 1
 
-            self.draw_landmarks(image, results)
-            if self.frame_num >= 20:
-                # if self.frame_num >= 40:
-                self.folder_number += 1
-                self.frame_num = 1
+                if self.frame_num >= 20:
+                    # if self.frame_num >= 40:
+                    self.folder_number += 1
+                    self.frame_num = 1
 
+            else:
+                self.current_action += 1
+                self.folder_number = 0
+                if self.current_action > len(self.f_content['actions']):
+                    self.running = False
 
-        else:
-
-            self.current_action += 1
-            self.folder_number = 0
-            if self.current_action > len(self.f_content['actions']):
-                self.running = False
-
-            return
+                return
 
     def draw_landmarks(self, image, results):
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
                 self.mp_drawing.draw_landmarks(image, hand_landmarks, self.hands.HAND_CONNECTIONS)
 
-
-def extract_keypoints(results, occurrence, image):
-    if results.multi_hand_landmarks:
+    def extract_keypoints(self, results):
+        # detect_obj = model(image[..., ::-1])
+        # results_obj = detect_obj.pandas().xywhn[0].to_dict(orient='records')
+        # fixation_pts = np.array([pt["norm_pos"] for pt in occurrence.get(
+        #     "fixations")]).flatten() if occurrence.get('fixations') else np.zeros(2)
+        # bbox = extract_obbbox(results_obj, empty=np.zeros(4))
+        if not results.multi_hand_landmarks:
+            return np.concatenate([np.zeros(63), np.zeros(63)])
         for idx, hand_coordinates in enumerate(results.multi_hand_landmarks):
             for _, classification in enumerate(results.multi_handedness):
                 right_hand = np.array([[coordinates_.x, coordinates_.y, coordinates_.z] for coordinates_ in
@@ -116,16 +128,53 @@ def extract_keypoints(results, occurrence, image):
                                       hand_coordinates.landmark]).flatten() if classification.classification[
                                                                                    0].index == idx else np.zeros(
                     21 * 3)
+                return np.concatenate([left_hand, right_hand])
 
-                fixation_pts = np.array([pt["norm_pos"] for pt in occurrence.get(
-                    "fixations")]).flatten() if occurrence.get('fixations') else np.zeros(2)
-                bbox = extract_bbox(image)
-                return np.concatenate([left_hand, right_hand, fixation_pts, bbox])
+
+def draw_plots(frame, results):
+    for res in results:  # plot bounding boxes and include labels
+        if res['class'] == 0:  # Book
+            l = int(res['xmin'])
+            t = int(res['ymin'])
+            r = int(res['xmax'])
+            b = int(res['ymax'])
+            text_in_image = res['name']
+            cv2.rectangle(frame, (l, t), (r, b), (0, 0, 255), 1)
+            cv2.putText(frame, text_in_image, (l, t), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+                        cv2.LINE_AA)
+
+        elif res['class'] == 1:  # Mug
+            l1 = int(res['xmin'])
+            t1 = int(res['ymin'])
+            r1 = int(res['xmax'])
+            b1 = int(res['ymax'])
+            text_in_image = res['name']
+            cv2.rectangle(frame, (l1, t1), (r1, b1), (255, 0, 0), 1)
+            cv2.putText(frame, text_in_image, (l1, t1), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+                        cv2.LINE_AA)
+
+        elif res['class'] == 2:  # Mugs
+            l2 = int(res['xmin'])
+            t2 = int(res['ymin'])
+            r2 = int(res['xmax'])
+            b2 = int(res['ymax'])
+            text_in_image = res['name']
+            # cv2.rectangle(frame, (l2, t2), (r2, b2), (255, 0, 255), 1)
+            # cv2.putText(frame, text_in_image, (l2, t2), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+            #             cv2.LINE_AA)
+
+        else:
+            l3 = int(res['xmin'])
+            t3 = int(res['ymin'])
+            r3 = int(res['xmax'])
+            b3 = int(res['ymax'])
+            text_in_image = res['name']
+            cv2.rectangle(frame, (l3, t3), (r3, b3), (0, 255, 0), 1)
+            cv2.putText(frame, text_in_image, (l3, t3), cv2.FONT_HERSHEY_DUPLEX, 0.35, (255, 100, 120), 1,
+                        cv2.LINE_AA)
 
 
 def extract_bbox(results, empty=np.zeros(4)):
-    if not results:
-        return empty
     for i in results:
         if i['class'] == 3:
             empty[0] = i['xcenter']
@@ -134,3 +183,57 @@ def extract_bbox(results, empty=np.zeros(4)):
             empty[3] = i['height']
             return empty.flatten()
         return empty
+    return np.zeros(4)
+
+
+
+
+def extract_obj(results, empty=np.zeros(4)):
+    if not results:
+        return empty.flatten()
+    while results['class'] == 3:
+        empty[0] = results['xcenter']
+        empty[1] = results['ycenter']
+        empty[2] = results['width']
+        empty[3] = results['height']
+        return empty.flatten()
+    else:
+        return empty.flatten()
+
+
+def extract_obb(results, empty=np.zeros(4)):
+    if not results['class'] == 3:
+        return empty.flatten()
+    empty[0] = results['xcenter']
+    empty[1] = results['ycenter']
+    empty[2] = results['width']
+    empty[3] = results['height']
+    return empty.flatten()
+
+
+def extract_obbbox(results, empty=np.zeros(4)):
+    while results:
+        return results
+        # if results['class'] != 3:
+        #     return empty.flatten()
+        # else:
+        #     empty[0] = results['xcenter']
+        #     empty[1] = results['ycenter']
+        #     empty[2] = results['width']
+        #     empty[3] = results['height']
+        #     return empty.flatten()
+
+#
+# def extract_bbox(image):
+#     detect_obj = model(image[..., ::-1])
+#     results_obj = detect_obj.pandas().xywhn[0].to_dict(orient='records')
+#     empty = np.zeros(4)
+#
+#     for i in results_obj:
+#         if i['class'] == 3:
+#             empty[0] = i['xcenter']
+#             empty[1] = i['ycenter']
+#             empty[2] = i['width']
+#             empty[3] = i['height']
+#             return empty.flatten()
+#         return np.zeros(4)
