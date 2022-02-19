@@ -33,6 +33,22 @@ def detect_hands(image, result):
     return results
 
 
+def extract_keypoints(results):
+    if not results.multi_hand_landmarks:
+        return np.concatenate([np.zeros(63), np.zeros(63)])
+    for idx, hand_coordinates in enumerate(results.multi_hand_landmarks):
+        for _, classification in enumerate(results.multi_handedness):
+            right_hand = np.array([[coordinates_.x, coordinates_.y, coordinates_.z] for coordinates_ in
+                                   hand_coordinates.landmark]).flatten() if classification.classification[
+                                                                                0].index == 1 else np.zeros(
+                21 * 3)
+            left_hand = np.array([[coordinates_.x, coordinates_.y, coordinates_.z] for coordinates_ in
+                                  hand_coordinates.landmark]).flatten() if classification.classification[
+                                                                               0].index == idx else np.zeros(
+                21 * 3)
+            return np.concatenate([left_hand, right_hand])
+
+
 class HandEyeObject(Plugin):
     """"This Plugin Extracts hand coordinates
     and fixation in world scene camera"""
@@ -60,40 +76,36 @@ class HandEyeObject(Plugin):
     def recent_events(self, events):
         if not self.running or 'frame' not in events:
             return
-        # frame = events['frame'].img
         fixation_pts = np.array([pt["norm_pos"] for pt in events.get(
             "fixations")]).flatten() if events.get('fixations') else np.zeros(2)
         action = self.f_content['actions'][self.current_action]
-        folder = 10
+        folder = 30
 
         detect_obj = model(events['frame'].img[..., ::-1])
         results_obj = np.array(detect_obj.pandas().xywhn[0].to_dict(orient='records'))
-        plot_bbox = np.array(detect_obj.pandas().xyxy[0].to_dict(orient='records'))
-        bbox=extract_bbox(results_obj, empty=np.zeros(4))
-        draw_plots(events['frame'].img, plot_bbox)
+        # plot_bbox = np.array(detect_obj.pandas().xyxy[0].to_dict(orient='records'))
+        bbox = extract_bbox(results_obj, empty=np.zeros(4))
+        # draw_plots(events['frame'].img, plot_bbox)
         with self.hands.Hands(min_tracking_confidence=0.55, min_detection_confidence=0.6) as mediapipe_hands:
+
             if self.current_action < len(self.f_content['actions']) and self.folder_number < folder:
                 image = events['frame'].img
-
-                text_to_display = f'action = {action} frame_number = {self.frame_num}'  # passed_time ={passed_time}'
-                cv2.putText(events['frame'].img, text_to_display, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.25, (255, 100, 120), 1,
+                text_to_display = 'current action : {}, current folder : {}, frame number : {} '.format(action, self.folder_number, self.frame_num)
+                # f'action = {action} frame_number = {self.frame_num}'  # passed_time ={passed_time}'
+                cv2.putText(events['frame'].img, text_to_display, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.25,
+                            (255, 100, 120), 1,
                             cv2.LINE_AA)
-
                 results = detect_hands(events['frame'].img, mediapipe_hands)
                 self.draw_landmarks(image, results)
-                file_name = f'{self.frame_num}.npy'
-                hand_keypoints = self.extract_keypoints(results)
-                H_E_O_keypoints = np.concatenate([hand_keypoints, fixation_pts, bbox])
-                # keypoints= extract_obbbox(results_obj, empty=np.zeros(4))
-                # print(H_E_O_keypoints)
 
+                file_name = f'{self.frame_num}.npy'
+                hand_keypoints = extract_keypoints(results)
+                H_E_O_keypoints = np.concatenate([hand_keypoints, fixation_pts, bbox])
                 H_E_O_keypoints_path = os.path.join(self.root_folder, action, str(self.folder_number), file_name)
                 np.save(H_E_O_keypoints_path, H_E_O_keypoints)
-                # print(keypoints)
                 self.frame_num += 1
 
-                if self.frame_num >= 20:
-                    # if self.frame_num >= 40:
+                if self.frame_num >= 30:
                     self.folder_number += 1
                     self.frame_num = 1
 
@@ -109,26 +121,6 @@ class HandEyeObject(Plugin):
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
                 self.mp_drawing.draw_landmarks(image, hand_landmarks, self.hands.HAND_CONNECTIONS)
-
-    def extract_keypoints(self, results):
-        # detect_obj = model(image[..., ::-1])
-        # results_obj = detect_obj.pandas().xywhn[0].to_dict(orient='records')
-        # fixation_pts = np.array([pt["norm_pos"] for pt in occurrence.get(
-        #     "fixations")]).flatten() if occurrence.get('fixations') else np.zeros(2)
-        # bbox = extract_obbbox(results_obj, empty=np.zeros(4))
-        if not results.multi_hand_landmarks:
-            return np.concatenate([np.zeros(63), np.zeros(63)])
-        for idx, hand_coordinates in enumerate(results.multi_hand_landmarks):
-            for _, classification in enumerate(results.multi_handedness):
-                right_hand = np.array([[coordinates_.x, coordinates_.y, coordinates_.z] for coordinates_ in
-                                       hand_coordinates.landmark]).flatten() if classification.classification[
-                                                                                    0].index == 1 else np.zeros(
-                    21 * 3)
-                left_hand = np.array([[coordinates_.x, coordinates_.y, coordinates_.z] for coordinates_ in
-                                      hand_coordinates.landmark]).flatten() if classification.classification[
-                                                                                   0].index == idx else np.zeros(
-                    21 * 3)
-                return np.concatenate([left_hand, right_hand])
 
 
 def draw_plots(frame, results):
@@ -186,8 +178,6 @@ def extract_bbox(results, empty=np.zeros(4)):
     return np.zeros(4)
 
 
-
-
 def extract_obj(results, empty=np.zeros(4)):
     if not results:
         return empty.flatten()
@@ -209,31 +199,3 @@ def extract_obb(results, empty=np.zeros(4)):
     empty[2] = results['width']
     empty[3] = results['height']
     return empty.flatten()
-
-
-def extract_obbbox(results, empty=np.zeros(4)):
-    while results:
-        return results
-        # if results['class'] != 3:
-        #     return empty.flatten()
-        # else:
-        #     empty[0] = results['xcenter']
-        #     empty[1] = results['ycenter']
-        #     empty[2] = results['width']
-        #     empty[3] = results['height']
-        #     return empty.flatten()
-
-#
-# def extract_bbox(image):
-#     detect_obj = model(image[..., ::-1])
-#     results_obj = detect_obj.pandas().xywhn[0].to_dict(orient='records')
-#     empty = np.zeros(4)
-#
-#     for i in results_obj:
-#         if i['class'] == 3:
-#             empty[0] = i['xcenter']
-#             empty[1] = i['ycenter']
-#             empty[2] = i['width']
-#             empty[3] = i['height']
-#             return empty.flatten()
-#         return np.zeros(4)
