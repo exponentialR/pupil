@@ -90,10 +90,10 @@ class HandEyeObject(Plugin):
 
             if self.current_action < len(self.f_content['actions']) and self.folder_number < folder:
                 image = events['frame'].img
-                text_to_display = 'current action : {}, current folder : {}, frame number : {} '.format(action, self.folder_number, self.frame_num)
+                text_to_display = 'current action : {} current folder : {}, frame number : {} '.format(action, self.folder_number, self.frame_num)
                 # f'action = {action} frame_number = {self.frame_num}'  # passed_time ={passed_time}'
                 cv2.putText(events['frame'].img, text_to_display, (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.25,
-                            (255, 100, 120), 1,
+                            (255, 100, 250), 1,
                             cv2.LINE_AA)
                 results = detect_hands(events['frame'].img, mediapipe_hands)
                 self.draw_landmarks(image, results)
@@ -105,7 +105,7 @@ class HandEyeObject(Plugin):
                 np.save(H_E_O_keypoints_path, H_E_O_keypoints)
                 self.frame_num += 1
 
-                if self.frame_num >= 30:
+                if self.frame_num >= 60:
                     self.folder_number += 1
                     self.frame_num = 1
 
