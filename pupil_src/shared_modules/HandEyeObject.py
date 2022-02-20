@@ -177,7 +177,7 @@ def extract_bbox(results, empty=np.zeros(4)):
         return empty
     return np.zeros(4)
 
-
+#try this code Monday 21.2.22
 def extract_obj(results, empty=np.zeros(4)):
     if not results:
         return empty.flatten()
@@ -191,11 +191,11 @@ def extract_obj(results, empty=np.zeros(4)):
         return empty.flatten()
 
 
-def extract_obb(results, empty=np.zeros(4)):
-    if not results['class'] == 3:
-        return empty.flatten()
-    empty[0] = results['xcenter']
-    empty[1] = results['ycenter']
-    empty[2] = results['width']
-    empty[3] = results['height']
-    return empty.flatten()
+# def extract_obb(results, empty=np.zeros(4)):
+#     if not results['class'] == 3:
+#         return empty.flatten()
+#     empty[0] = results['xcenter']
+#     empty[1] = results['ycenter']
+#     empty[2] = results['width']
+#     empty[3] = results['height']
+#     return empty.flatten()
