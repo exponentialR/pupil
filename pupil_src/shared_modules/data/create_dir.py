@@ -34,7 +34,7 @@ def create_dir(actions, data_dir):
         data_dir = os.path.join(data_dir)
 
     for action in actions:
-        for folder in range(30):#Commented this out as there is no need for subfolder
+        for folder in range(1, 31):#Commented this out as there is no need for subfolder
             try:
                 os.makedirs(os.path.join(data_dir, action, str(folder)))  # str(folder)
             except:
@@ -43,7 +43,8 @@ def create_dir(actions, data_dir):
                 # w = '{}.iams'.format(data_dir)
                 iamsdict = {'actions': args.actions, 'video_length': args.video_length,
                             'Data_Directory': data_dir,
-                            'Data_Subfolder': str(Path("data/{}".format(data_dir)))}
+                            'Data_Subfolder': str(Path("data/{}".format(data_dir))),
+                            'action_number': 0}
                 # iamsdict['subfolder_length'] = args.subfolder_numbers
                 w = 'iamsMediapipe.iams'
                 if not os.path.exists(w):
@@ -62,3 +63,6 @@ def create_dir(actions, data_dir):
 
 if __name__ == '__main__':
     create_dir(args.actions, args.pat)
+#To use refer comment below
+
+#python create_dir.py --actions ok move right  --pat participant1 --video_length 30

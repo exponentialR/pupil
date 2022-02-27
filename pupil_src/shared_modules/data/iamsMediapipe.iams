@@ -1,1 +1,19 @@
-{"actions": ["ok", "move", "right"], "video_length": 30, "Data_Directory": "test_data", "Data_Subfolder": "data/test_data"}
+{
+  "actions": [
+    "handover1",
+    "handover2",
+    "pickup1",
+    "pickup2",
+    "setdown1",
+    "setdown1",
+    "setdown2",
+    "moveright1",
+    "moveright2",
+    "moveleft1",
+    "moveleft2"
+  ],
+  "video_length": 30,
+  "Data_Directory": "participant1",
+  "Data_Subfolder": "data/participant1",
+  "action_number": 8
+}

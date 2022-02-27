@@ -171,6 +171,7 @@ def world(
         from time_sync import Time_Sync
         from network_api import NetworkApiPlugin
         from pupil_groups import Pupil_Groups
+        from Fixation_HEO_PostHoc import Fixation_HEO_PostHoc
         from Hpupil import Hand_Pupil
         from HandDataExtract import HandDataExtract
         from HandEyeObject import HandEyeObject
@@ -260,6 +261,7 @@ def world(
             Surface_Tracker_Online,
             Annotation_Capture,
             Log_History,
+            Fixation_HEO_PostHoc,
             Fixation_Detector,
             Blink_Detection,
             Hand_Pupil,
